@@ -1,17 +1,19 @@
+#Alerta de crecientes con conectividad GPRS
 
-from SIM800L import Modem     "Librería del modulo de conexion a la red"
-from hcsr04 import HCSR04     "Librería del sensor de distancia"
-from machine import deepsleep "Librería de modo de bajo consumo"
-from time import sleep        "Libreria de retardos de tiempo"
-import json                   "Librería para armar datos para post"
+from SIM800L import Modem     
+from hcsr04 import HCSR04     
+from machine import deepsleep 
+from time import sleep        
+import json                   
 
-# Variables
-DistMax = 150      "Nivel 0 o fondo del rio"
-NivelMax = 100     "Nivel máximo que genera una alarma"
-UmbralMax = 5      "Cm de aumento del nivel para generar alarma"
-UmbralMin = -5     "Cm de disminucion del nivel para generar alarma"
+#Constantes
+DistMax = 150      #Nivel 0 o fondo del rio
+NivelMax = 100     #Nivel máximo que genera una alarma
+UmbralMax = 5      #Cm de aumento del nivel para generar alarma
+UmbralMin = -5     #Cm de disminucion del nivel para generar alarma
 
-#Determinar pines de conecion con los modulos
+#Crear objetos
+
 sensor = HCSR04(trigger_pin=13, echo_pin=12) #pines del Sensor de distancia
 
 modem = Modem(MODEM_PWKEY_PIN    = 4,
@@ -22,15 +24,17 @@ modem = Modem(MODEM_PWKEY_PIN    = 4,
 
 #Empezando mediciones
 MedV = 0
-MedF = 0    "variables para promediar 100 mediciones"
+MedF = 0    #variables para promediar 100 mediciones
 suma = 0
 
+
+''' Revisar esto debe estar dentro de un def creo
 while (valor < 100 or valor2 < 50):
     dist = sensor.distance_cm()
     print (distance)
     if (dist < 250 and dist > 0):
         suma = suma + dist
-        MedV = MedV + 1                 "mide 100 veces y promedia"
+        MedV = MedV + 1                 #mide 100 veces y promedia
         sleep (.02)
     else:
         print ("nula")
@@ -38,17 +42,23 @@ while (valor < 100 or valor2 < 50):
         sleep (.02)       
 dist = suma / MedV
 Nivel = DistMax - dist
+'''
+
+dist = 100 #dummy
+
 #Recuperar distancia medida anteriormente 
-dist.ant="0"
+distanciaAnterior=0
 file = open ("datos.dat", "r")
-dist.ant = int(file.read())
+distanciaAnterior = int(file.read())
 file.write (str(dist))
 file.close()
-print(dist.ant)
-NivelAnt = DistMax - dist.ant
+print(distanciaAnterior)
+NivelAnt = DistMax - distanciaAnterior
+
+Nivel = DistMax - dist  #REvisar si va aca
 
 #Detectar Diferencia
-variacion = dist.ant - dist
+variacion = distanciaAnterior - dist
 if (variacion) > 0:
     print("Aumentó el nivel respecto a la medicion anterior")
     if (variacion > UmbralMax):
@@ -58,10 +68,9 @@ if (variacion) > 0:
         print("El nivel del rio está en aumento")
         Mensaje = "El nivel del rio está en aumento, se encuentra en: ", str(Nivel), "Cm"
 else:
-    print("Disminulló el nivel respecto a la medicion anterior")
+    print("Disminuyó el nivel respecto a la medicion anterior")
     if (variacion > UmbralMin):
         print("EL NIVEL DEL RIO SOBREPASÓ EL UMBRAL MAXIMO")
-        Nivel = DistMax - dist
         Mensaje = "EL NIVEL DEL RIO DISMINUYÓ RAPIDAMENTE A: ", str(Nivel), "Cm"
         
 # Iniciando modem
@@ -72,7 +81,7 @@ print('Signal strength: "{}%"'.format(modem.get_signal_strength()*100))  #Calida
 #conectando con el modem
 modem.connect(apn='datos.personal.com', user='datos', pwd='datos')       #Conexion del chip con personal
 print('\nModem IP address: "{}"'.format(modem.get_ip_addr()))
-print(get_signal_strength())
+print(modem.get_signal_strength())
 
 datos={
     "api_key": "7B9AHBOZ1UWKNQAD",
