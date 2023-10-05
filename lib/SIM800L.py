@@ -99,7 +99,6 @@ class Modem(object):
                 break
 
         logger.debug('Ok, modem "{}" is ready and accepting commands'.format(self.modem_info))
-        print("ok polisha")
         # Set initialized flag and support vars
         self.initialized = True
         
@@ -305,9 +304,7 @@ class Modem(object):
         logger.debug('Trying to close the bearer in case it was left open somehow..')
         try:
             self.execute_at_command('closebear')
-            print("ok polisha?")
         except GenericATError:
-            print("pasá de largo")
             pass
 
         # First, init gprs

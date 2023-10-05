@@ -28,37 +28,25 @@ MedF = 0    #variables para promediar 100 mediciones
 suma = 0
 
 
-''' Revisar esto debe estar dentro de un def creo
-while (valor < 100 or valor2 < 50):
-    dist = sensor.distance_cm()
-    print (distance)
-    if (dist < 250 and dist > 0):
-        suma = suma + dist
-        MedV = MedV + 1                 #mide 100 veces y promedia
-        sleep (.02)
-    else:
-        print ("nula")
-        MedF = MedF + 1
-        sleep (.02)       
-dist = suma / MedV
-Nivel = DistMax - dist
-'''
+#Hacer función con promedios
+distanciaActual = sensor.distance_cm()
 
-dist = 100 #dummy
+#Recuperar distancia medida anteriormente y actualizar con el valor actual
+#Falta agregar control de errores
 
-#Recuperar distancia medida anteriormente 
 distanciaAnterior=0
 file = open ("datos.dat", "r")
 distanciaAnterior = int(file.read())
-file.write (str(dist))
+file.write (str(distanciaActual))
 file.close()
 print(distanciaAnterior)
 NivelAnt = DistMax - distanciaAnterior
 
-Nivel = DistMax - dist  #REvisar si va aca
+#Calcular nivel del río
+Nivel = DistMax - distanciaActual  #REvisar si va aca
 
 #Detectar Diferencia
-variacion = distanciaAnterior - dist
+variacion = distanciaAnterior - distanciaActual
 if (variacion) > 0:
     print("Aumentó el nivel respecto a la medicion anterior")
     if (variacion > UmbralMax):
@@ -84,7 +72,7 @@ print('\nModem IP address: "{}"'.format(modem.get_ip_addr()))
 print(modem.get_signal_strength())
 
 datos={
-    "api_key": "7B9AHBOZ1UWKNQAD",
+    "api_key": "5HSXE8X7QV1WFIAP",
     "field1": Nivel
     }
 #GET
