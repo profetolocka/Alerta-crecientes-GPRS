@@ -1,134 +1,101 @@
-# ---------------------
-# SIM800L example usage
-# ---------------------
 
-from SIM800L import Modem
-from hcsr04 import HCSR04
-from machine import deepsleep
-from time import sleep
-import json
+from SIM800L import Modem     "Librería del modulo de conexion a la red"
+from hcsr04 import HCSR04     "Librería del sensor de distancia"
+from machine import deepsleep "Librería de modo de bajo consumo"
+from time import sleep        "Libreria de retardos de tiempo"
+import json                   "Librería para armar datos para post"
 
-sensor = HCSR04(trigger_pin=13, echo_pin=12)
+# Variables
+DistMax = 150      "Nivel 0 o fondo del rio"
+NivelMax = 100     "Nivel máximo que genera una alarma"
+UmbralMax = 5      "Cm de aumento del nivel para generar alarma"
+UmbralMin = -5     "Cm de disminucion del nivel para generar alarma"
 
-def example_usage():
-    print('Starting up...')
+#Determinar pines de conecion con los modulos
+sensor = HCSR04(trigger_pin=13, echo_pin=12) #pines del Sensor de distancia
 
-    # Create new modem object on the right Pins
-    modem = Modem(MODEM_PWKEY_PIN    = 4,
-                  MODEM_RST_PIN      = 5,
-                  MODEM_POWER_ON_PIN = 23,
-                  MODEM_TX_PIN       = 26,
-                  MODEM_RX_PIN       = 27)
+modem = Modem(MODEM_PWKEY_PIN    = 4,
+                MODEM_RST_PIN      = 5,
+                MODEM_POWER_ON_PIN = 23,    #pines de conexion etre ESP32 con SIM800L
+                MODEM_TX_PIN       = 26,
+                MODEM_RX_PIN       = 27)
 
-    # Initialize the modem
-    modem.initialize()
+#Empezando mediciones
+MedV = 0
+MedF = 0    "variables para promediar 100 mediciones"
+suma = 0
 
-    # Run some optional diagnostics
-    #print('Modem info: "{}"'.format(modem.get_info()))
-    #print('Network scan: "{}"'.format(modem.scan_networks()))
-    #print('Current network: "{}"'.format(modem.get_current_network()))
-    #print('Signal strength: "{}%"'.format(modem.get_signal_strength()*100))
-
-    # Connect the modem
-    modem.connect(apn='datos.personal.com', user='datos', pwd='datos') #leave username and password empty if your network don't require them
-    print('\nModem IP address: "{}"'.format(modem.get_ip_addr()))
-    
-    distance2 = sensor.distance_cm()
-    suma = 0
-    valProm = 0
-    valor = 0
-    valProg = 0
-    valProg2 = 0
-    medProg = 0
-    nivel = 0
-    print ("empezando la medicion")
-    while valor < 5:
-        distance = sensor.distance_cm()
-        print (distance)
-        if (distance < 250 and distance > 0):
-            suma = suma + distance
-            valor = valor + 1
-            sleep (1)
-        else:
-            print ("nula")
-            sleep (1)
-    valor = 0       
-    distance = suma / 6
-    suma = 0
-    print ("prom", distance)
-    if (distance <= 100):
-        valor = 0
-        valor2 = 0
-        med = 0
-        while valor < 5:
-            
-            distance = sensor.distance_cm() 
-            if (distance <= 100):
-                med = med + 1
-                valor = valor + 1
-                sleep(5)
-            elif (distance > 100):
-                valor2 = 5 - valor
-                valor = valor + valor2
-            else:
-                print ("medicion erronea")
-                sleep(5)
-        valor = 0       
-        nivel = 150 - distance
-        
-        if (med >= 5):
-            print ("ATENCION, el nivel del agua sobrepasó el limite: ", nivel, "cm")
-            sleep(5)
-        else:
-            print ("caudal normal, nivel: ", nivel, "cm")
-            sleep(5)
-                
-        
-    elif (distance > 100 and distance < 150):
-        nivel = 150 - distance
-        print ("nivel de agua normal: ", nivel)
-        if (distance < distance2):
-            valProg = valProg + 1
-            distance2 = distance
-        else:
-            valProg = 0
-        if (valProg >= 5):
-            nivel = 150 - distance
-            print ("el nivel está incrementando en las ultimas 5 mediciones: ", nivel, "cm")
-            sleep(5)
-        else:
-            print ("0")
-            sleep(5)
+while (valor < 100 or valor2 < 50):
+    dist = sensor.distance_cm()
+    print (distance)
+    if (dist < 250 and dist > 0):
+        suma = suma + dist
+        MedV = MedV + 1                 "mide 100 veces y promedia"
+        sleep (.02)
     else:
-        print("medicion erronea")
-        sleep(1)
-    
-    Nivel = nivel
-    # Example GET
-    print('\nNow running demo http GET...')
-    url = 'http://api.thingspeak.com/update?api_key=NW2MTDR0MKCY6VL2&field1=' + str(Nivel)
-    response = modem.http_request(url, 'GET')
-    print('Response status code:', response.status_code)
-    print('Response content:', response.content)
-    sleep(5)
-    print("me voy por 5 segundos...") 
-    Nivel = 0
-    # Example POST
-#    print('Now running demo https POST...')
-#    url  = 
-#    data = json.dumps({'myparameter': 42})
-#    response = modem.http_request(url, 'POST', data, 'application/json')
-#    print('Response status code:', response.status_code)
-#    print('Response content:', response.content)
-    
+        print ("nula")
+        MedF = MedF + 1
+        sleep (.02)       
+dist = suma / MedV
+Nivel = DistMax - dist
+#Recuperar distancia medida anteriormente 
+dist.ant="0"
+file = open ("datos.dat", "r")
+dist.ant = int(file.read())
+file.write (str(dist))
+file.close()
+print(dist.ant)
+NivelAnt = DistMax - dist.ant
 
-    # Disconnect Modem
-    modem.disconnect()
+#Detectar Diferencia
+variacion = dist.ant - dist
+if (variacion) > 0:
+    print("Aumentó el nivel respecto a la medicion anterior")
+    if (variacion > UmbralMax):
+        print("EL NIVEL DEL RIO SOBREPASÓ EL UMBRAL MAXIMO")
+        Mensaje = ("EL NIVEL DEL RIO AUMENTÓ RAPIDAMENTE DE: ", str(NivelAnt), "Cm A: ", str(Nivel), "Cm")
+    else:
+        print("El nivel del rio está en aumento")
+        Mensaje = "El nivel del rio está en aumento, se encuentra en: ", str(Nivel), "Cm"
+else:
+    print("Disminulló el nivel respecto a la medicion anterior")
+    if (variacion > UmbralMin):
+        print("EL NIVEL DEL RIO SOBREPASÓ EL UMBRAL MAXIMO")
+        Nivel = DistMax - dist
+        Mensaje = "EL NIVEL DEL RIO DISMINUYÓ RAPIDAMENTE A: ", str(Nivel), "Cm"
+        
+# Iniciando modem
+modem.initialize()
+print('Etableciendo conexion...')
+print('Signal strength: "{}%"'.format(modem.get_signal_strength()*100))  #Calidad de la conexion a la red
+
+#conectando con el modem
+modem.connect(apn='datos.personal.com', user='datos', pwd='datos')       #Conexion del chip con personal
+print('\nModem IP address: "{}"'.format(modem.get_ip_addr()))
+print(get_signal_strength())
+
+datos={
+    "api_key": "7B9AHBOZ1UWKNQAD",
+    "field1": Nivel
+    }
+#GET
+#print('\nNow running demo http GET...')
+#url = 'http://api.thingspeak.com/update?api_key=7B9AHBOZ1UWKNQAD&field1=' + str(Nivel)
+#response = modem.http_request(url, 'GET')
+#print('Response status code:', response.status_code)
+#print('Response content:', response.content)
+#sleep(5)
+
+#POST
+print('Now running demo https POST...')
+url  = "http://api.thingspeak.com/update"
+data = json.dumps(datos)
+response = modem.http_request(url, 'POST', data, 'application/json')
+print('Response status code:', response.status_code)#    print('Response content:', response.content)
+
+# Disconnect Modem
+modem.disconnect()
     
-try:
-    example_usage()
-    deepsleep(5000)
-except:
-    deepsleep(5000)
-    print ("Hubo un error")
+deepsleep(5000)
+
     
