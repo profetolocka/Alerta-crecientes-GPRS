@@ -7,13 +7,15 @@ from time import sleep
 import json                   
 
 #Constantes
-DistMax = 150      #Nivel 0 o fondo del rio
-NivelMax = 100     #Nivel máximo que genera una alarma
+DistMax = 150.0     #Nivel 0 o fondo del rio
+NivelMax = 100.0     #Nivel máximo que genera una alarma
 UmbralMax = 5      #Cm de aumento del nivel para generar alarma
 UmbralMin = -5     #Cm de disminucion del nivel para generar alarma
 
-#Crear objetos
+#Para tomar control, borrar
+sleep (5)
 
+#Crear objetos
 sensor = HCSR04(trigger_pin=13, echo_pin=12) #pines del Sensor de distancia
 
 modem = Modem(MODEM_PWKEY_PIN    = 4,
@@ -27,39 +29,49 @@ MedV = 0
 MedF = 0    #variables para promediar 100 mediciones
 suma = 0
 
-
+ 
 #Hacer función con promedios
 distanciaActual = sensor.distance_cm()
+
+print ("Distancia Actual: ", distanciaActual)
 
 #Recuperar distancia medida anteriormente y actualizar con el valor actual
 #Falta agregar control de errores
 
-distanciaAnterior=0
+distanciaAnterior=DistMax  
+
+#try:
 file = open ("datos.dat", "r")
-distanciaAnterior = int(file.read())
-file.write (str(distanciaActual))
+distanciaAnterior = float(file.read()) 
 file.close()
+file = open ("datos.dat", "w")     #Sobreescribir
+file.write (str(distanciaActual))
+file.close() 
+#except:
+#    print ("Error al leer archivo de datos")
+#    pass
+
 print(distanciaAnterior)
-NivelAnt = DistMax - distanciaAnterior
+NivelAnterior = DistMax - distanciaAnterior
 
 #Calcular nivel del río
-Nivel = DistMax - distanciaActual  #REvisar si va aca
+NivelActual = DistMax - distanciaActual  #REvisar si va aca
 
 #Detectar Diferencia
-variacion = distanciaAnterior - distanciaActual
-if (variacion) > 0:
+variacion = NivelAnterior - NivelActual
+if (variacion) < 0:
     print("Aumentó el nivel respecto a la medicion anterior")
     if (variacion > UmbralMax):
         print("EL NIVEL DEL RIO SOBREPASÓ EL UMBRAL MAXIMO")
         Mensaje = ("EL NIVEL DEL RIO AUMENTÓ RAPIDAMENTE DE: ", str(NivelAnt), "Cm A: ", str(Nivel), "Cm")
     else:
         print("El nivel del rio está en aumento")
-        Mensaje = "El nivel del rio está en aumento, se encuentra en: ", str(Nivel), "Cm"
+        Mensaje = "El nivel del rio está en aumento, se encuentra en: ", str(NivelActual), "Cm"
 else:
     print("Disminuyó el nivel respecto a la medicion anterior")
     if (variacion > UmbralMin):
         print("EL NIVEL DEL RIO SOBREPASÓ EL UMBRAL MAXIMO")
-        Mensaje = "EL NIVEL DEL RIO DISMINUYÓ RAPIDAMENTE A: ", str(Nivel), "Cm"
+        Mensaje = "EL NIVEL DEL RIO DISMINUYÓ RAPIDAMENTE A: ", str(NivelActual), "Cm"
         
 # Iniciando modem
 modem.initialize()
@@ -73,7 +85,7 @@ print(modem.get_signal_strength())
 
 datos={
     "api_key": "5HSXE8X7QV1WFIAP",
-    "field1": Nivel
+    "field1": NivelActual
     }
 #GET
 #print('\nNow running demo http GET...')
@@ -93,6 +105,7 @@ print('Response status code:', response.status_code)#    print('Response content
 # Disconnect Modem
 modem.disconnect()
     
+print ("A dormir!")
 deepsleep(5000)
 
     
