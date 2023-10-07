@@ -1,13 +1,41 @@
 #Alerta de crecientes con conectividad GPRS
-
 from SIM800L import Modem     
 from hcsr04 import HCSR04     
 from machine import deepsleep 
 from time import sleep        
-import json                   
+import json
+
+'''
+Medición de distancias promediada.
+Hace 16 lecturas y promedia las lecturas válidas.
+Descarta los valores que sean superiores al parámetro de entrada "max"
+(a veces la librería que uso devuelve 250 como medida errónea)
+Si no puede hacer ninguna lectura válida genera un error 
+'''
+def medirDistancia (max):
+    sumaDistancias=0
+    cantValidas=0
+    for (medida) in range (16):
+        try:
+            d = sensor.distance_cm ()
+            #print ("medicion=",d)
+            sleep (0.1)
+        except:
+            d = max
+            #print ("Err")
+
+        if (d < max):
+            sumaDistancias = sumaDistancias + d
+            cantValidas +=1
+            #print ("cant=",medida)
+    
+    if (cantValidas>0):
+        return (sumaDistancias/cantValidas)
+    else:
+        raise OSError('Error en sensor distancias')
 
 #Constantes
-DistMax = 150.0     #Nivel 0 o fondo del rio
+distMax = 150.0     #Nivel 0 o fondo del rio
 NivelMax = 100.0     #Nivel máximo que genera una alarma
 UmbralMax = 5      #Cm de aumento del nivel para generar alarma
 UmbralMin = -5     #Cm de disminucion del nivel para generar alarma
@@ -17,6 +45,7 @@ sleep (5)
 
 #Crear objetos
 sensor = HCSR04(trigger_pin=13, echo_pin=12) #pines del Sensor de distancia
+
 
 modem = Modem(MODEM_PWKEY_PIN    = 4,
                 MODEM_RST_PIN      = 5,
@@ -30,9 +59,15 @@ MedF = 0    #variables para promediar 100 mediciones
 suma = 0
 
  
-#Hacer función con promedios
-distanciaActual = sensor.distance_cm()
 
+
+try:
+    print ("Dist=",medirDistancia(distMax))
+    sleep (0.5)
+except:
+    print ("Error con el sensor!")
+    
+    
 print ("Distancia Actual: ", distanciaActual)
 
 #Recuperar distancia medida anteriormente y actualizar con el valor actual
