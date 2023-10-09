@@ -49,17 +49,64 @@ def medirNivel (max):
 
     except:
         raise OSError ("Error al medir nivel")
-        
+
+'''
+Se va al modo de bajo consumo hasta la siguiente lectura
+'''
+def modoBajoConsumo (tiempo):
+
+    print ("A dormir!")
+    deepsleep(tiempo)
+
+'''
+Reporte de alarmas a través de Thingspeak
+'''
+def reportarAlarma (tipo, valor):
+    
+    #Inicializando modem
+    modem.initialize()
+    print('Etableciendo conexion...')
+    print('Signal strength: "{}%"'.format(modem.get_signal_strength()*100))  #Calidad de la conexion a la red
+
+    #conectando con el modem
+    modem.connect(apn='datos.personal.com', user='datos', pwd='datos')       #Conexion del chip con personal
+    print('\nModem IP address: "{}"'.format(modem.get_ip_addr()))
+
+    datos={
+        "api_key": "5HSXE8X7QV1WFIAP",
+        "field1": valor
+        }
+    
+    #GET
+    #print('\nNow running demo http GET...')
+    #url = 'http://api.thingspeak.com/update?api_key=7B9AHBOZ1UWKNQAD&field1=' + str(Nivel)
+    #response = modem.http_request(url, 'GET')
+    #print('Response status code:', response.status_code)
+    #print('Response content:', response.content)
+    #sleep(5)
+
+    #POST
+    url  = "http://api.thingspeak.com/update"
+    data = json.dumps(datos)
+    response = modem.http_request(url, 'POST', data, 'application/json')
+    print('Response status code:', response.status_code)#    print('Response content:', response.content)
+
+    #Desconectar modem
+    modem.disconnect()
     
 
+
 #Constantes
-distMax = 150.0     #Nivel 0 o fondo del rio
-NivelMax = 100.0     #Nivel máximo que genera una alarma
-UmbralMax = 5      #Cm de aumento del nivel para generar alarma
-UmbralMin = -5     #Cm de disminucion del nivel para generar alarma
+distMax = 150.0     		#Nivel 0 o fondo del rio
+nivelMax = 100.0     		#Nivel máximo absoluto que genera una alarma
+variacionCreciente = 5      #Cm de aumento del nivel para generar alarma
+variacionDecreciente = 5    #Cm de disminucion del nivel para generar alarma
+
+#tiempoReporte = 1000*60*5  #Tiempo entre reportes
+tiempoReporte = 1000*5  #Tiempo entre reportes
 
 #Para tomar control, borrar
-sleep (5)
+sleep (5) 
 
 #Crear objetos
 sensor = HCSR04(trigger_pin=13, echo_pin=12) #pines del Sensor de distancia
@@ -78,6 +125,7 @@ try:
 except:
     print ("Error al medir nivel!")
     #A dormir para probar luego
+    modoBajoConsumo (tiempoReporte)
     
 else:
     print ("Nivel=",nivelActual)
@@ -114,57 +162,60 @@ else:
     print ("Variacion:      ", variacion)
     print ("======================================================")
 
-   
+    #Test PUSH
+    apiKey = 'XXXXXXXXXXXXXXX' #reemplazar por la propia API KEY
+
+    url = "https://api.pushbullet.com/v2/pushes"
+    headers = {'Access-Token': apiKey, 'Content-Type': 'application/json'}
+
+    data = {'type':'note','body':'Mensaje desde MicroPython','title':'MicroPython'}
+    dataJSON = json.dumps(data)
+    
+    ##
+    modem.initialize()
+    print('Estableciendo conexion...')
+    print('Signal strength: "{}%"'.format(modem.get_signal_strength()*100))  #Calidad de la conexion a la red
+
+    #conectando con el modem
+    modem.connect(apn='datos.personal.com', user='datos', pwd='datos')       #Conexion del chip con personal
+    print('\nModem IP address: "{}"'.format(modem.get_ip_addr()))
+
+    ##HEADER!!!!!
+    response = modem.http_request(url, 'POST', dataJSON, content_type=headers)
+    print('Response status code:', response.status_code)#    print('Response content:', response.content)
+
+    #Desconectar modem
+    modem.disconnect()
+    ##
+    
+    #print("Enviando mensaje")
+    #r = urequests.post(url, headers=headers,data=dataJSON)
+    #print(r.json()['receiver_email'])
+    
+    #Test
+    #reportarAlarma (0, nivelActual)
+    #modoBajoConsumo (tiempoReporte)
+    
+    
+    
     #Comparar
-    
+    #Si la variacion de nivel > variacion Creciente reportar alarma Creciente
+    #Si la variacion de nivel > variacion Decreciente reportar alarma Decreciente
+    #Si el nivel actual > nivelMax reportar alarma Creciente
 
-if (variacion) < 0:
-    print("Aumentó el nivel respecto a la medicion anterior")
-    if (variacion > UmbralMax):
-        print("EL NIVEL DEL RIO SOBREPASÓ EL UMBRAL MAXIMO")
-        Mensaje = ("EL NIVEL DEL RIO AUMENTÓ RAPIDAMENTE DE: ", str(NivelAnt), "Cm A: ", str(Nivel), "Cm")
-    else:
-        print("El nivel del rio está en aumento")
-        Mensaje = "El nivel del rio está en aumento, se encuentra en: ", str(NivelActual), "Cm"
-else:
-    print("Disminuyó el nivel respecto a la medicion anterior")
-    if (variacion > UmbralMin):
-        print("EL NIVEL DEL RIO SOBREPASÓ EL UMBRAL MAXIMO")
-        Mensaje = "EL NIVEL DEL RIO DISMINUYÓ RAPIDAMENTE A: ", str(NivelActual), "Cm"
+    if (nivelActual > nivelMax):
+        print ("ALARMA Nivel máximo")
+        reportarAlarma (NIVEL_MAX, nivelActual)
         
-# Iniciando modem
-modem.initialize()
-print('Etableciendo conexion...')
-print('Signal strength: "{}%"'.format(modem.get_signal_strength()*100))  #Calidad de la conexion a la red
+    if ((variacion > 0) and (variacion > variacionCreciente)):
+        print ("ALARMA Creciente")
+        reportarAlarma (CRECIENTE, nivelActual)
+        
+    if ((variacion < 0) and (variacion < variacionDecreciente)):
+        print ("ALARMA Decreciente")
+        reportarAlarma (DECRECIENTE, nivelActual)
+        
 
-#conectando con el modem
-modem.connect(apn='datos.personal.com', user='datos', pwd='datos')       #Conexion del chip con personal
-print('\nModem IP address: "{}"'.format(modem.get_ip_addr()))
-print(modem.get_signal_strength())
 
-datos={
-    "api_key": "5HSXE8X7QV1WFIAP",
-    "field1": NivelActual
-    }
-#GET
-#print('\nNow running demo http GET...')
-#url = 'http://api.thingspeak.com/update?api_key=7B9AHBOZ1UWKNQAD&field1=' + str(Nivel)
-#response = modem.http_request(url, 'GET')
-#print('Response status code:', response.status_code)
-#print('Response content:', response.content)
-#sleep(5)
-
-#POST
-print('Now running demo https POST...')
-url  = "http://api.thingspeak.com/update"
-data = json.dumps(datos)
-response = modem.http_request(url, 'POST', data, 'application/json')
-print('Response status code:', response.status_code)#    print('Response content:', response.content)
-
-# Disconnect Modem
-modem.disconnect()
-    
-print ("A dormir!")
-deepsleep(5000)
 
     
