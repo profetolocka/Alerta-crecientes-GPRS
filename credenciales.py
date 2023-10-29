@@ -1,5 +1,0 @@
-secretos = { 
-    'TS_API_KEY': "5HSXE8X7QV1WFIAP",
-    'TL_API_KEY': "iQAWUX2JfkPQq1Lmz61I2NoKG6ddoLv0dSGNyES-AR9"
- 
-} 
