@@ -1,10 +1,19 @@
 #Alerta de crecientes con conectividad GPRS
-from SIM800L import Modem     
+from SIM800L import Modem
+#import SIM800_SMS
+
 from hcsr04 import HCSR04     
 from machine import deepsleep 
 from time import sleep        
 import json
 
+#Leer credenciales 
+from credenciales import secretos
+
+TS_API_KEY = secretos.get('TS_API_KEY')
+
+
+print (TS_API_KEY)
 '''
 Medición de distancias promediada.
 Hace 16 lecturas y promedia las lecturas válidas.
@@ -59,6 +68,29 @@ def modoBajoConsumo (tiempo):
     deepsleep(tiempo)
 
 '''
+Prueba de Telegram via IFTTT
+'''
+def reportaTelegram ():
+    ##TEST TELEGRAM
+    
+    #Inicializando modem
+    modem.initialize()
+    print('Etableciendo conexion...')
+    print('Signal strength: "{}%"'.format(modem.get_signal_strength()*100))  #Calidad de la conexion a la red
+
+    #conectando con el modem
+    modem.connect(apn='datos.personal.com', user='datos', pwd='datos')       #Conexion del chip con personal
+    print('\nModem IP address: "{}"'.format(modem.get_ip_addr()))
+
+    url = 'https://maker.ifttt.com/trigger/Sensor_nivel/json/with/key/iQAWUX2JfkPQq1Lmz61I2NoKG6ddoLv0dSGNyES-AR9&field1=' + str(0)
+    response = modem.http_request(url, 'GET')
+    print('Response status code:', response.status_code)
+    print('Response content:', response.content)
+    
+    #Desconectar modem
+    modem.disconnect()
+
+'''
 Reporte de alarmas a través de Thingspeak
 '''
 def reportarAlarma (tipo, valor):
@@ -73,7 +105,7 @@ def reportarAlarma (tipo, valor):
     print('\nModem IP address: "{}"'.format(modem.get_ip_addr()))
 
     datos={
-        "api_key": "5HSXE8X7QV1WFIAP",
+        "ts_api_key": TS_API_KEY,
         "field1": valor
         }
     
@@ -102,6 +134,11 @@ nivelMax = 100.0     		#Nivel máximo absoluto que genera una alarma
 variacionCreciente = 5      #Cm de aumento del nivel para generar alarma
 variacionDecreciente = 5    #Cm de disminucion del nivel para generar alarma
 
+#Tipos de alarmas
+NIVEL_MAX = 0
+CRECIENTE = 1
+DECRECIENTE = 2
+
 #tiempoReporte = 1000*60*5  #Tiempo entre reportes
 tiempoReporte = 1000*5  #Tiempo entre reportes
 
@@ -110,6 +147,8 @@ sleep (5)
 
 #Crear objetos
 sensor = HCSR04(trigger_pin=13, echo_pin=12) #pines del Sensor de distancia
+
+#gsm = sim800.gsm(27,115200)
 
 modem = Modem(MODEM_PWKEY_PIN    = 4,
                 MODEM_RST_PIN      = 5,
@@ -162,6 +201,7 @@ else:
     print ("Variacion:      ", variacion)
     print ("======================================================")
 
+    '''
     #Test PUSH
     apiKey = 'XXXXXXXXXXXXXXX' #reemplazar por la propia API KEY
 
@@ -172,31 +212,9 @@ else:
     dataJSON = json.dumps(data)
     
     ##
-    modem.initialize()
-    print('Estableciendo conexion...')
-    print('Signal strength: "{}%"'.format(modem.get_signal_strength()*100))  #Calidad de la conexion a la red
-
-    #conectando con el modem
-    modem.connect(apn='datos.personal.com', user='datos', pwd='datos')       #Conexion del chip con personal
-    print('\nModem IP address: "{}"'.format(modem.get_ip_addr()))
-
-    ##HEADER!!!!!
-    response = modem.http_request(url, 'POST', dataJSON, content_type=headers)
-    print('Response status code:', response.status_code)#    print('Response content:', response.content)
-
-    #Desconectar modem
-    modem.disconnect()
-    ##
+    '''
     
-    #print("Enviando mensaje")
-    #r = urequests.post(url, headers=headers,data=dataJSON)
-    #print(r.json()['receiver_email'])
-    
-    #Test
-    #reportarAlarma (0, nivelActual)
-    #modoBajoConsumo (tiempoReporte)
-    
-    
+    #reportaTelegram ()
     
     #Comparar
     #Si la variacion de nivel > variacion Creciente reportar alarma Creciente
@@ -215,7 +233,7 @@ else:
         print ("ALARMA Decreciente")
         reportarAlarma (DECRECIENTE, nivelActual)
         
-
+    modoBajoConsumo (tiempoReporte)
 
 
     
