@@ -3,7 +3,7 @@ from SIM800L import Modem
 #import SIM800_SMS
 
 from hcsr04 import HCSR04     
-from machine import deepsleep 
+from machine import deepsleep, ADC, Pin
 from time import sleep        
 import json
 
@@ -96,8 +96,12 @@ def reportaTelegram (texto):
 Reporte de Alarmas
 '''
 def reportarAlarma (tipoAlarma, nivel):
-        #Reporta el nivel actual
-    reportaTelegram ("ALARMA "+tipoAlarma+" Nivel="+str(nivel))
+    
+    #Reporta el nivel actual
+    nivelBateria = pinBateria.read_uv()/500000
+    print ("Batería: ", nivelBateria)
+
+    reportaTelegram ("ALARMA "+tipoAlarma+" Nivel="+str(nivel)+" Bat="+str(nivelBateria)) 
 
 #Constantes
 distMax = 150.0     		#Nivel 0 o fondo del rio
@@ -113,6 +117,8 @@ sleep (5)
 
 #Crear objetos
 sensor = HCSR04(trigger_pin=13, echo_pin=12) #pines del Sensor de distancia
+
+pinBateria = ADC (Pin(34))
 
 modem = Modem(MODEM_PWKEY_PIN    = 4,
                 MODEM_RST_PIN      = 5,
@@ -166,7 +172,7 @@ else:
     print ("Variacion:      ", variacion)
     print ("======================================================")
 
-    
+
 
     #Comparar
     #Si la variacion de nivel > variacion Creciente reportar alarma Creciente
