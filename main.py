@@ -1,5 +1,5 @@
 #Alerta de crecientes con conectividad GPRS
-from SIM800L import Modem
+from SIM800L import Modem 
 #import SIM800_SMS
 
 from hcsr04 import HCSR04     
@@ -10,10 +10,10 @@ import json
 #Leer credenciales 
 from credenciales import secretos
 
-TS_API_KEY = secretos.get('TS_API_KEY')
+#API Key de Telegram
+telegramAPI = secretos['TL_API_KEY']
 
 
-print (TS_API_KEY)
 '''
 Medición de distancias promediada.
 Hace 16 lecturas y promedia las lecturas válidas.
@@ -70,63 +70,34 @@ def modoBajoConsumo (tiempo):
 '''
 Prueba de Telegram via IFTTT
 '''
-def reportaTelegram ():
-    ##TEST TELEGRAM
+def reportaTelegram (texto):
     
-    #Inicializando modem
-    modem.initialize()
-    print('Etableciendo conexion...')
-    print('Signal strength: "{}%"'.format(modem.get_signal_strength()*100))  #Calidad de la conexion a la red
+    try:
+        #Inicializando modem
+        modem.initialize()
+        print('Estableciendo conexion...')
+        print('Señal: "{}%"'.format(modem.get_signal_strength()*100))  #Calidad de la conexion a la red
 
-    #conectando con el modem
-    modem.connect(apn='datos.personal.com', user='datos', pwd='datos')       #Conexion del chip con personal
-    print('\nModem IP address: "{}"'.format(modem.get_ip_addr()))
+        #conectando con el modem
+        modem.connect(apn='datos.personal.com', user='datos', pwd='datos')       #Conexion del chip con personal
+        print('\nModem IP address: "{}"'.format(modem.get_ip_addr()))
 
-    url = 'https://maker.ifttt.com/trigger/Sensor_nivel/json/with/key/iQAWUX2JfkPQq1Lmz61I2NoKG6ddoLv0dSGNyES-AR9&field1=' + str(0)
-    response = modem.http_request(url, 'GET')
-    print('Response status code:', response.status_code)
-    print('Response content:', response.content)
+        url= 'http://maker.ifttt.com/trigger/Sensor_nivel/with/key/'+telegramAPI+'?value1='+texto
+        response = modem.http_request(url, 'GET')
+        print('Response status code:', response.status_code)
+        print('Response content:', response.content)
     
-    #Desconectar modem
-    modem.disconnect()
+    except:
+        print ("Algún error con el modem")
+        #Desconectar modem
+        modem.disconnect()
 
 '''
-Reporte de alarmas a través de Thingspeak
+Reporte de Alarmas
 '''
-def reportarAlarma (tipo, valor):
-    
-    #Inicializando modem
-    modem.initialize()
-    print('Etableciendo conexion...')
-    print('Signal strength: "{}%"'.format(modem.get_signal_strength()*100))  #Calidad de la conexion a la red
-
-    #conectando con el modem
-    modem.connect(apn='datos.personal.com', user='datos', pwd='datos')       #Conexion del chip con personal
-    print('\nModem IP address: "{}"'.format(modem.get_ip_addr()))
-
-    datos={
-        "ts_api_key": TS_API_KEY,
-        "field1": valor
-        }
-    
-    #GET
-    #print('\nNow running demo http GET...')
-    #url = 'http://api.thingspeak.com/update?api_key=7B9AHBOZ1UWKNQAD&field1=' + str(Nivel)
-    #response = modem.http_request(url, 'GET')
-    #print('Response status code:', response.status_code)
-    #print('Response content:', response.content)
-    #sleep(5)
-
-    #POST
-    url  = "http://api.thingspeak.com/update"
-    data = json.dumps(datos)
-    response = modem.http_request(url, 'POST', data, 'application/json')
-    print('Response status code:', response.status_code)#    print('Response content:', response.content)
-
-    #Desconectar modem
-    modem.disconnect()
-    
-
+def reportarAlarma (tipoAlarma, nivel):
+        #Reporta el nivel actual
+    reportaTelegram ("ALARMA "+tipoAlarma+" Nivel="+str(nivel))
 
 #Constantes
 distMax = 150.0     		#Nivel 0 o fondo del rio
@@ -134,13 +105,8 @@ nivelMax = 100.0     		#Nivel máximo absoluto que genera una alarma
 variacionCreciente = 5      #Cm de aumento del nivel para generar alarma
 variacionDecreciente = 5    #Cm de disminucion del nivel para generar alarma
 
-#Tipos de alarmas
-NIVEL_MAX = 0
-CRECIENTE = 1
-DECRECIENTE = 2
 
-#tiempoReporte = 1000*60*5  #Tiempo entre reportes
-tiempoReporte = 1000*5  #Tiempo entre reportes
+tiempoReporte = 1000*60*5  #Tiempo entre reportes
 
 #Para tomar control, borrar
 sleep (5) 
@@ -148,13 +114,12 @@ sleep (5)
 #Crear objetos
 sensor = HCSR04(trigger_pin=13, echo_pin=12) #pines del Sensor de distancia
 
-#gsm = sim800.gsm(27,115200)
-
 modem = Modem(MODEM_PWKEY_PIN    = 4,
                 MODEM_RST_PIN      = 5,
                 MODEM_POWER_ON_PIN = 23,    #pines de conexion etre ESP32 con SIM800L
                 MODEM_TX_PIN       = 26,
                 MODEM_RX_PIN       = 27)
+
 
 #Medir el nivel actual del agua
 try:
@@ -193,7 +158,7 @@ else:
     file.close() 
 
     #Calcular Diferencia
-    variacion = nivelAnterior - nivelActual
+    variacion = nivelActual - nivelAnterior
 
     print ("======================================================")
     print ("Nivel actual:   ", nivelActual)
@@ -201,38 +166,25 @@ else:
     print ("Variacion:      ", variacion)
     print ("======================================================")
 
-    '''
-    #Test PUSH
-    apiKey = 'XXXXXXXXXXXXXXX' #reemplazar por la propia API KEY
+    
 
-    url = "https://api.pushbullet.com/v2/pushes"
-    headers = {'Access-Token': apiKey, 'Content-Type': 'application/json'}
-
-    data = {'type':'note','body':'Mensaje desde MicroPython','title':'MicroPython'}
-    dataJSON = json.dumps(data)
-    
-    ##
-    '''
-    
-    #reportaTelegram ()
-    
     #Comparar
     #Si la variacion de nivel > variacion Creciente reportar alarma Creciente
     #Si la variacion de nivel > variacion Decreciente reportar alarma Decreciente
-    #Si el nivel actual > nivelMax reportar alarma Creciente
+    #Si el nivel actual > nivelMax reportar alarma Nivel Maximo
 
     if (nivelActual > nivelMax):
         print ("ALARMA Nivel máximo")
-        reportarAlarma (NIVEL_MAX, nivelActual)
+        reportarAlarma ("NIVEL MAX", nivelActual)
         
     if ((variacion > 0) and (variacion > variacionCreciente)):
         print ("ALARMA Creciente")
-        reportarAlarma (CRECIENTE, nivelActual)
+        reportarAlarma ("CRECIENTE", nivelActual)
         
     if ((variacion < 0) and (variacion < variacionDecreciente)):
         print ("ALARMA Decreciente")
-        reportarAlarma (DECRECIENTE, nivelActual)
-        
+        reportarAlarma ("DECRECIENTE", nivelActual)
+      
     modoBajoConsumo (tiempoReporte)
 
 
