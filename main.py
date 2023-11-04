@@ -15,6 +15,21 @@ telegramAPI = secretos['TL_API_KEY']
 
 
 '''
+Medición de la tensión de bateria
+Hace 16 mediciones y las promedia
+Está calibrado 
+'''
+def medirBateria ():  
+    
+    t=0
+    for x in range (0,15):
+        t=t + pinBateria.read()
+
+    tp = t /16
+    return (tp / 4095) * 2 * 3.7 
+
+
+'''
 Medición de distancias promediada.
 Hace 16 lecturas y promedia las lecturas válidas.
 Descarta los valores que sean superiores al parámetro de entrada "max"
@@ -98,10 +113,10 @@ Reporte de Alarmas
 def reportarAlarma (tipoAlarma, nivel):
     
     #Reporta el nivel actual
-    nivelBateria = pinBateria.read_uv()/500000
+    nivelBateria = medirBateria ()
     print ("Batería: ", nivelBateria)
 
-    reportaTelegram ("ALARMA "+tipoAlarma+" Nivel="+str(nivel)+" Bat="+str(nivelBateria)) 
+    reportaTelegram ("ALARMA "+tipoAlarma+" Nivel="+str(nivel)+" Bat={:.2f}".format(nivelBateria)) 
 
 #Constantes
 distMax = 150.0     		#Nivel 0 o fondo del rio
@@ -118,7 +133,8 @@ sleep (5)
 #Crear objetos
 sensor = HCSR04(trigger_pin=13, echo_pin=12) #pines del Sensor de distancia
 
-pinBateria = ADC (Pin(34))
+pinBateria = ADC (Pin(35))
+pinBateria.atten (ADC.ATTN_11DB)
 
 modem = Modem(MODEM_PWKEY_PIN    = 4,
                 MODEM_RST_PIN      = 5,
@@ -173,10 +189,9 @@ else:
     print ("======================================================")
 
 
-
     #Comparar
     #Si la variacion de nivel > variacion Creciente reportar alarma Creciente
-    #Si la variacion de nivel > variacion Decreciente reportar alarma Decreciente
+    #Si la variacion de nivel > variacion Decreciente reportar alarma Bajante
     #Si el nivel actual > nivelMax reportar alarma Nivel Maximo
 
     if (nivelActual > nivelMax):
@@ -189,7 +204,7 @@ else:
         
     if ((variacion < 0) and (variacion < variacionDecreciente)):
         print ("ALARMA Decreciente")
-        reportarAlarma ("DECRECIENTE", nivelActual)
+        reportarAlarma ("BAJANTE", nivelActual)
       
     modoBajoConsumo (tiempoReporte)
 
